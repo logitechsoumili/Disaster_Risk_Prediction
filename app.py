@@ -1,117 +1,219 @@
-import gradio as gr
-import pandas as pd
+import streamlit as st
 import joblib
+import numpy as np
+import matplotlib.pyplot as plt
 
-# Load artifacts
+# ------------------------------------------------
+# Page Configuration
+# ------------------------------------------------
+st.set_page_config(
+    page_title="Flood Risk Prediction System",
+    page_icon="🌊",
+    layout="wide"
+)
+
+# ------------------------------------------------
+# Load Model
+# ------------------------------------------------
 model = joblib.load("models/flood_risk_model.pkl")
-label_encoder = joblib.load("models/label_encoder.pkl")
-feature_columns = joblib.load("models/feature_columns.pkl")
 
-def predict_flood(rainfall, temperature, humidity,
-                  river_discharge, water_level, elevation,
-                  population_density, infrastructure, historical_floods):
+risk_labels = ["Low", "Medium", "High"]
 
-    input_dict = {
-        "Rainfall (mm)": rainfall,
-        "Temperature (°C)": temperature,
-        "Humidity (%)": humidity,
-        "River Discharge (m³/s)": river_discharge,
-        "Water Level (m)": water_level,
-        "Elevation (m)": elevation,
-        "Population Density": population_density,
-        "Infrastructure": infrastructure,
-        "Historical Floods": historical_floods
-    }
+# ------------------------------------------------
+# Sidebar Navigation
+# ------------------------------------------------
+st.sidebar.title("Navigation")
+page = st.sidebar.radio(
+    "Go to",
+    ["Risk Assessment", "Model Insights", "About"]
+)
 
-    input_df = pd.DataFrame([input_dict])
+# ==============================================================
+# PAGE 1 — RISK ASSESSMENT
+# ==============================================================
+if page == "Risk Assessment":
 
-    # Add missing columns
-    for col in feature_columns:
-        if col not in input_df.columns:
-            input_df[col] = 0
-
-    input_df = input_df[feature_columns]
-
-    prediction = model.predict(input_df)
-    probabilities = model.predict_proba(input_df)[0]
-
-    risk_label = label_encoder.inverse_transform(prediction)[0]
-    classes = label_encoder.classes_
-
-    # Probability breakdown
-    prob_output = "## 📊 Probability Breakdown\n\n" + "\n".join(
-        [
-            f"- **{classes[i]}**: {probabilities[i]*100:.2f}%"
-            for i in range(len(classes))
-        ]
+    st.title("Flood Risk Prediction System")
+    st.markdown(
+        "AI-driven hydrological risk classification engine using machine learning."
     )
 
-    if risk_label == "Low":
-        banner = f"""
-        <div style="background: linear-gradient(90deg,#0f5132,#198754);
-                    padding:20px;
-                    border-radius:12px;
-                    color:white;">
-        <h2>🟢 LOW RISK</h2>
-        <p>Current environmental conditions indicate minimal flood risk.</p>
-        </div>
-        """
-    elif risk_label == "Medium":
-        banner = f"""
-        <div style="background: linear-gradient(90deg,#664d03,#ffc107);
-                    padding:20px;
-                    border-radius:12px;
-                    color:black;">
-        <h2>🟡 MEDIUM RISK</h2>
-        <p>Moderate flood likelihood. Monitoring recommended.</p>
-        </div>
-        """
-    else:
-        banner = f"""
-        <div style="background: linear-gradient(90deg,#842029,#dc3545);
-                    padding:20px;
-                    border-radius:12px;
-                    color:white;">
-        <h2>🔴 HIGH RISK</h2>
-        <p>High flood risk detected. Immediate caution advised.</p>
-        </div>
-        """
+    st.divider()
 
-    return banner, prob_output
+    st.subheader("Input Parameters")
 
+    col1, col2 = st.columns(2)
 
-with gr.Blocks(theme=gr.themes.Soft()) as demo:
+    with col1:
+        rainfall = st.number_input(
+            "Rainfall (mm)", min_value=0.0, value=150.0
+        )
+        discharge = st.number_input(
+            "River Discharge (m³/s)", min_value=0.0, value=2500.0
+        )
 
-    gr.Markdown("""
-        # 🌊 Flood Risk Prediction System  
-        ### AI-powered environmental risk classification
-        """)
+    with col2:
+        water_level = st.number_input(
+            "Water Level (m)", min_value=0.0, value=5.0
+        )
+        elevation = st.number_input(
+            "Elevation (m)", min_value=0.0, value=4400.0
+        )
 
-    with gr.Row():
-        with gr.Column():
-
-            rainfall = gr.Slider(0, 500, value=100, label="Rainfall (mm)")
-            temperature = gr.Slider(-10, 50, value=25, label="Temperature (°C)")
-            humidity = gr.Slider(0, 100, value=40, label="Humidity (%)")
-            river_discharge = gr.Slider(0, 5000, value=500, label="River Discharge (m³/s)")
-            water_level = gr.Slider(0, 6000, value=1000, label="Water Level (m)")
-            elevation = gr.Slider(0, 5000, value=1000, label="Elevation (m)")
-            population_density = gr.Slider(0, 500000, value=20000, label="Population Density")
-            infrastructure = gr.Radio([0,1], value=1, label="Infrastructure (0=Poor, 1=Good)")
-            historical_floods = gr.Radio([0,1], value=0, label="Historical Floods")
-
-            submit = gr.Button("Predict Risk")
-
-        with gr.Column():
-            output_label = gr.Markdown()
-            output_probs = gr.Markdown()
-
-    submit.click(
-        predict_flood,
-        inputs=[rainfall, temperature, humidity,
-                river_discharge, water_level, elevation,
-                population_density, infrastructure, historical_floods],
-        outputs=[output_label, output_probs]
+    historical = st.selectbox(
+        "Historical Flood Indicator (0 = No, 1 = Yes)",
+        [0, 1]
     )
 
-demo.launch()
+    # Basic validation
+    if rainfall > 1000:
+        st.warning("Rainfall unusually high. Please verify input values.")
+
+    if st.button("Run Risk Assessment"):
+
+        input_data = np.array([[rainfall, discharge, water_level, elevation, historical]])
+
+        with st.spinner("Processing hydrological indicators..."):
+            prediction = model.predict(input_data)
+            probabilities = model.predict_proba(input_data)[0]
+
+        risk_level = prediction[0]
+
+        st.divider()
+        st.subheader("Risk Assessment Summary")
+
+        # KPI Metrics
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric("Predicted Risk Level", risk_labels[risk_level])
+
+        with col2:
+            st.metric(
+                "Model Confidence",
+                f"{np.max(probabilities) * 100:.2f}%"
+            )
+
+        with col3:
+            st.metric(
+                "Historical Flood Indicator",
+                historical
+            )
+
+        st.divider()
+
+        # Probability Distribution Chart
+        st.subheader("Risk Probability Distribution")
+
+        fig, ax = plt.subplots()
+
+        bars = ax.bar(risk_labels, probabilities)
+
+        ax.set_ylabel("Probability")
+        ax.set_ylim(0, 1)
+        ax.set_title("Predicted Risk Probabilities")
+
+        for bar in bars:
+            height = bar.get_height()
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                height,
+                f"{height:.2f}",
+                ha="center",
+                va="bottom"
+            )
+
+        st.pyplot(fig)
+
+        st.divider()
+
+        st.markdown(
+            """
+            **Risk Level Interpretation**
+
+            - **Low:** Minimal hydrological stress conditions  
+            - **Medium:** Moderate flood potential  
+            - **High:** Elevated flood likelihood; monitoring recommended  
+            """
+        )
+
+# ==============================================================
+# PAGE 2 — MODEL INSIGHTS
+# ==============================================================
+elif page == "Model Insights":
+
+    st.title("Model Insights")
+
+    st.subheader("Performance Metrics")
+
+    st.metric("Test Accuracy", "98.8%")
+    st.metric("Macro F1 Score", "0.98")
+
+    st.divider()
+
+    st.subheader("Feature Importance")
+
+    importance = model.feature_importances_
+
+    features = [
+        "Rainfall (mm)",
+        "River Discharge (m³/s)",
+        "Water Level (m)",
+        "Elevation (m)",
+        "Historical Floods"
+    ]
+
+    fig, ax = plt.subplots()
+    ax.barh(features, importance)
+    ax.set_title("Feature Importance")
+    ax.set_xlabel("Importance Score")
+
+    st.pyplot(fig)
+
+    st.info(
+        """
+        Model: XGBoost Classifier  
+        Features: 5 Hydrological Indicators  
+        Labeling Method: KMeans-derived risk categorization  
+        Validation Strategy: Stratified Train-Test Split  
+        """
+    )
+
+# ==============================================================
+# PAGE 3 — ABOUT
+# ==============================================================
+else:
+
+    st.title("About This Project")
+
+    st.markdown(
+        """
+        ### Flood Risk Prediction System
+
+        This project demonstrates an end-to-end machine learning workflow:
+
+        1. Initial binary flood prediction showed limited predictive signal.
+        2. Risk zones were derived using KMeans clustering.
+        3. A supervised XGBoost classifier was trained to predict derived risk levels.
+        4. The deployed system provides real-time risk assessment via Streamlit.
+
+        ### Technology Stack
+
+        - Python  
+        - Scikit-learn  
+        - XGBoost  
+        - Streamlit  
+        - Matplotlib  
+
+        This system illustrates practical application of unsupervised + supervised learning
+        for environmental risk modeling.
+        """
+    )
+
+# ------------------------------------------------
+# Footer
+# ------------------------------------------------
+st.divider()
+st.caption(
+    "Flood Risk Prediction System v1.0 | Developed by Soumili Saha | ML Project 2026"
+)
