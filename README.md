@@ -14,24 +14,8 @@ Early risk assessment based on environmental indicators can help in:
 - Infrastructure and urban planning  
 - Risk-aware decision making  
 - Resource allocation during extreme weather events  
-- Early warning system deployment
 
-This project aims to develop a comprehensive machine learning-based system that predicts **multiple disaster risk levels** including:
-
-- **Flood Risk Classification**: Low, Medium, High based on hydrological indicators (rainfall, river discharge, water level, elevation, historical flood occurrence)
-- **Heatwave Risk Classification**: Binary prediction of heat stress conditions using atmospheric indicators (temperature, humidity, wind speed, pressure, precipitation)
-
----
-
-## 🎯 Project Objective
-
-To design and deploy a comprehensive disaster risk prediction system that:
-
-- **Flood Module**: Identifies hydrological stress patterns and classifies regions into Low, Medium, and High risk categories
-- **Heatwave Module**: Predicts atmospheric heat stress conditions and identifies high-risk thermal events
-- Provides real-time risk assessment through an integrated web interface
-- Demonstrates practical application of ML in environmental and climate risk modeling
-- Delivers interpretable, actionable risk insights for disaster preparedness
+This project aims to develop a comprehensive machine learning-based system that predicts disaster risk levels.
 
 ---
 
@@ -59,41 +43,21 @@ Disaster_Risk_Prediction/
 
 ### 🌊 Flood Risk Module
 
-#### 1️⃣ Data Preparation
-- Train-test split performed before clustering (prevents data leakage)
-- StandardScaler applied for feature normalization
-- KMeans fitted only on training data to prevent leakage
+- Hydrological indicators split using a stratified train-test strategy.
+- KMeans clustering applied on training data to derive risk categories (Low / Medium / High).
+- XGBoost multi-class classifier trained on derived labels.
+- Cross-validation used for robust evaluation.
+- Feature importance analyzed for interpretability.
 
-#### 2️⃣ Risk Category Derivation (Unsupervised Learning)
-- KMeans clustering applied on hydrological features
-- Clusters interpreted based on:
-  - Water Level
-  - River Discharge
-  - Elevation
-  - Historical Flood Presence
-- Risk levels labeled as **Low, Medium, High**
-
-#### 3️⃣ Supervised Classification
-- XGBoost multi-class classifier trained on derived risk labels
-- Model learns non-linear hydrological boundaries
-- Cross-validation applied for robust performance estimation
+---
 
 ### 🔥 Heatwave Risk Module
 
-#### 1️⃣ Data Preparation
-- Temperature threshold-based labeling (Heatwave ≥ 40°C)
-- Train-test stratified split to maintain class balance
-- StandardScaler applied to all features
-
-#### 2️⃣ Label Engineering
-- Heatwave condition: Binary classification (Yes/No)
-- Direct temperature threshold features excluded to prevent data leakage
-- Model learns indirect atmospheric patterns
-
-#### 3️⃣ Model Selection
-- Random Forest Classifier for robust tabular weather data performance
-- Emphasis on F1 Score over accuracy due to class imbalance
-- Feature importance analysis for interpretability
+- Heatwave labeled using temperature threshold (≥ 40°C).
+- Stratified train-test split to handle class imbalance.
+- Direct threshold feature excluded to prevent data leakage.
+- Random Forest classifier selected based on F1 performance.
+- ROC-AUC and feature importance used for evaluation.
 
 ---
 
@@ -105,16 +69,12 @@ Disaster_Risk_Prediction/
 |--------|-------|
 | Test Accuracy | **98.8%** |
 | Macro F1 Score | **0.98** |
-| Weighted Precision | **0.99** |
-| Weighted Recall | **0.99** |
+| Recall | **0.99** |
 
 **Key Insights:**
 - Strong generalization across stratified test split
 - Excellent performance on all three risk classes
-- Feature importance analysis shows:
-  - Historical Flood Presence
-  - Water Level
-  - River Discharge
+- Top features: Historical Flood Presence, Water Level, River Discharge
 
 ### Heatwave Risk Classifier (Random Forest)
 
@@ -144,12 +104,16 @@ The system is deployed using **Streamlit** with a multi-page interface including
    - Geospatial mapping with folium
    - Hydrological indicators dashboard
 
+   ![Flood Dashboard](assets/flood_dashboard.png)
+
 2. **Heatwave Risk Assessment**
    - Atmospheric heat stress prediction
    - Comprehensive weather analytics
    - Heatwave probability metrics
    - Location-based risk visualization
    - Warning system indicators
+
+   ![Heatwave Dashboard](assets/heatwave_dashboard.png)
 
 3. **Model Insights**
    - Flood model architecture and methodology
@@ -244,11 +208,8 @@ The app will open in your default browser at `http://localhost:8501`
 
 - Multi-hazard expansion (Cyclone, Earthquake, Drought modules)
 - Integration with real-world meteorological datasets (IMD, NOAA)
-- Interactive geospatial risk heatmap visualization
-- REST API for programmatic access to predictions
 - Mobile application for on-the-go risk assessment
 - Time-series forecasting with LSTM/Prophet
-- Cloud deployment (AWS, GCP, Azure)
 - Push notifications for high-risk alerts
 - Database integration for historical data storage
 - Multi-language support for regional deployment
