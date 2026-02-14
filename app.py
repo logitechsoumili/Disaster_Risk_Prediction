@@ -10,8 +10,8 @@ from streamlit_folium import folium_static
 # Page Configuration
 # ------------------------------------------------
 st.set_page_config(
-    page_title="Flood Risk Prediction System",
-    page_icon="🌊",
+    page_title="Disaster Risk Prediction System",
+    page_icon="⚠️",
     layout="wide"
 )
 
