@@ -1,10 +1,13 @@
 import streamlit as st
 import joblib
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import requests
 import folium
 from streamlit_folium import folium_static
+import plotly.graph_objects as go
+import altair as alt
 
 # ------------------------------------------------
 # Page Configuration
@@ -67,7 +70,7 @@ def fetch_weather_detailed(lat, lon):
         f"&daily=temperature_2m_min,"
         f"relative_humidity_2m_max,relative_humidity_2m_min,"
         f"precipitation_sum"
-        f"&hourly=surface_pressure,wind_speed_10m"
+        f"&hourly=temperature_2m,surface_pressure,wind_speed_10m"
         f"&forecast_days=1"
         f"&timezone=auto"
     )
@@ -83,11 +86,48 @@ def fetch_weather_detailed(lat, lon):
     max_humidity = data["daily"]["relative_humidity_2m_max"][0]
     min_humidity = data["daily"]["relative_humidity_2m_min"][0]
     rainfall = data["daily"]["precipitation_sum"][0]
-
     pressure = data["hourly"]["surface_pressure"][0]
     wind_speed = data["hourly"]["wind_speed_10m"][0]
 
-    return min_temp, max_humidity, min_humidity, wind_speed, pressure, rainfall
+    hourly_times = data["hourly"]["time"] 
+    hourly_temps = data["hourly"]["temperature_2m"]
+
+    return min_temp, max_humidity, min_humidity, wind_speed, pressure, rainfall, hourly_times, hourly_temps
+
+def calculate_heat_index(temp_c, humidity):
+    temp_f = (temp_c * 9/5) + 32
+
+    hi_f = (-42.379 + 2.04901523*temp_f + 10.14333127*humidity
+            - 0.22475541*temp_f*humidity - 0.00683783*(temp_f**2)
+            - 0.05481717*(humidity**2)
+            + 0.00122874*(temp_f**2)*humidity
+            + 0.00085282*temp_f*(humidity**2)
+            - 0.00000199*(temp_f**2)*(humidity**2))
+
+    return round((hi_f - 32) * 5/9, 2)
+
+def risk_gauge(probability):
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=probability,
+        title={'text': "Heatwave Risk (%)"},
+        gauge={
+            'axis': {'range': [0, 100]},
+            'bar': {'color': "red"},
+            'steps': [
+                {'range': [0, 30], 'color': "green"},
+                {'range': [30, 60], 'color': "yellow"},
+                {'range': [60, 100], 'color': "red"},
+            ],
+        }
+    ))
+    fig.update_layout(
+        margin=dict(l=20, r=20, t=40, b=0), # Removes the huge white padding
+        height=250,                         # Explicit height prevents vertical stretching
+        paper_bgcolor="rgba(0,0,0,0)",      # Makes background transparent
+        plot_bgcolor="rgba(0,0,0,0)",
+    )
+    return fig
 
 # ------------------------------------------------
 # Sidebar Navigation
@@ -105,7 +145,7 @@ if page == "Flood Risk":
 
     st.title("Flood Risk Prediction System")
     st.markdown(
-        "AI-driven hydrological risk classification engine using machine learning."
+        "AI-driven hydrological risk classification engine."
     )
 
     st.divider()
@@ -124,102 +164,102 @@ if page == "Flood Risk":
         if not city:
             st.error("Please enter a city name.")
         else:
-            weather_data = fetch_weather(city)
+            with st.spinner("Fetching meteorological data and analyzing hydrological risk..."):
+                weather_data = fetch_weather(city)
 
-            if weather_data is None:
-                st.error("City not found or API error.")
-            else:
-                rainfall, temperature, humidity, lat, lon = weather_data
+                if weather_data is None:
+                    st.error("City not found or API error.")
+                else:
+                    rainfall, temperature, humidity, lat, lon = weather_data
 
-                elevation = fetch_elevation(lat, lon)
-                if elevation is None:
-                    elevation = 4400  # fallback
+                    elevation = fetch_elevation(lat, lon)
+                    if elevation is None:
+                        elevation = 4400  # fallback
 
-                # Derived hydrological approximations
-                discharge = 2000 + (rainfall * 10)
-                water_level = 4 + (rainfall * 0.02)
+                    # Derived hydrological approximations
+                    discharge = 2000 + (rainfall * 10)
+                    water_level = 4 + (rainfall * 0.02)
 
-                input_data = np.array([[rainfall, discharge, water_level, elevation, historical]])
+                    input_data = np.array([[rainfall, discharge, water_level, elevation, historical]])
 
-                with st.spinner("Processing hydrological indicators..."):
                     prediction = flood_model.predict(input_data)
                     probabilities = flood_model.predict_proba(input_data)[0]
 
-                risk_level = prediction[0]
+                    risk_level = prediction[0]
 
-                risk_text = risk_labels[risk_level]
+                    risk_text = risk_labels[risk_level]
 
-                if risk_text == "High":
-                    st.error("🚨 HIGH FLOOD RISK — Immediate Monitoring Recommended")
-                elif risk_text == "Medium":
-                    st.warning("⚠ MODERATE FLOOD RISK — Stay Alert")
-                else:
-                    st.success("✅ LOW FLOOD RISK — Conditions Stable")
+                    if risk_text == "High":
+                        st.error("🚨 HIGH FLOOD RISK — Immediate Monitoring Recommended")
+                    elif risk_text == "Medium":
+                        st.warning("⚠ MODERATE FLOOD RISK — Stay Alert")
+                    else:
+                        st.success("✅ LOW FLOOD RISK — Conditions Stable")
 
-                st.divider()
-                
-                colA, colB = st.columns(2)
+                    st.divider()
+                    
+                    colA, colB = st.columns(2)
 
-                with colA:
-                    st.markdown("### 📊 Risk Assessment Summary")
-                    with st.container(border=True):
-                        col1, col2, col3 = st.columns(3)
+                    with colA:
+                        st.markdown("### 📊 Risk Assessment Summary")
+                        with st.container(border=True):
+                            col1, col2, col3 = st.columns(3)
 
-                        with col1:
-                            st.metric("Predicted Risk Level", risk_labels[risk_level])
+                            with col1:
+                                st.metric("Predicted Risk Level", risk_labels[risk_level])
 
-                        with col2:
-                            st.metric("Model Confidence", f"{np.max(probabilities) * 100:.2f}%")
+                            with col2:
+                                st.metric("Model Confidence", f"{np.max(probabilities) * 100:.2f}%")
 
-                        with col3:
-                            st.metric("Elevation (m)", f"{elevation:.2f}")
+                            with col3:
+                                st.metric("Elevation (m)", f"{elevation:.2f}")
 
-                with colB:
-                    st.markdown("### ⛅ Live Weather Report")
-                    with st.container(border=True):
-                        col1, col2, col3 = st.columns(3)
+                    with colB:
+                        st.markdown("### ⛅ Live Weather Report")
+                        with st.container(border=True):
+                            col1, col2, col3 = st.columns(3)
 
-                        with col1:
-                            st.metric("Rainfall (1h)", f"{rainfall} mm")
+                            with col1:
+                                st.metric("Rainfall (1h)", f"{rainfall} mm")
 
-                        with col2:
-                            st.metric("Temperature", f"{temperature} °C")
+                            with col2:
+                                st.metric("Temperature", f"{temperature} °C")
 
-                        with col3:
-                            st.metric("Humidity", f"{humidity} %")
+                            with col3:
+                                st.metric("Humidity", f"{humidity} %")
 
-                st.divider()
+                    st.divider()
 
-                st.subheader("📍 Geographical Risk Location")
-                
-                m = folium.Map(location=[lat, lon], zoom_start=10)
-                
-                color = "green"
-                if risk_text == "High":
-                    color = "red"
-                elif risk_text == "Medium":
-                    color = "orange"
-                
-                folium.CircleMarker(
-                    location=[lat, lon],
-                    radius=12,
-                    color=color,
-                    fill=True,
-                    fill_color=color,
-                    popup=f"{city} — {risk_text} Risk"
-                ).add_to(m)
-                
-                folium_static(m, width=1200, height=400)
+                    st.subheader("📍 Geographical Risk Location")
+                    
+                    m = folium.Map(location=[lat, lon], zoom_start=10)
+                    
+                    color = "green"
+                    if risk_text == "High":
+                        color = "red"
+                    elif risk_text == "Medium":
+                        color = "orange"
+                    
+                    folium.CircleMarker(
+                        location=[lat, lon],
+                        radius=12,
+                        color=color,
+                        fill=True,
+                        fill_color=color,
+                        popup=f"{city} — {risk_text} Risk"
+                    ).add_to(m)
+                    
+                    folium_static(m, width=1200, height=400)
 
-                st.divider()
+                    st.divider()
 
-                st.info("""
-                    ### Risk Interpretation
+                    st.info("""
+                        ### Risk Interpretation
 
-                    - **Low Risk** → Minimal hydrological stress  
-                    - **Medium Risk** → Moderate flood probability  
-                    - **High Risk** → Elevated likelihood of flooding — monitoring advised  
-                    """)
+                        - **Low Risk** → Minimal hydrological stress  
+                        - **Medium Risk** → Moderate flood probability  
+                        - **High Risk** → Elevated likelihood of flooding — monitoring advised  
+                        """)
 
 # ==============================================================
 # PAGE 2 — HEATWAVE RISK
@@ -227,7 +267,7 @@ if page == "Flood Risk":
 elif page == "Heatwave Risk":
 
     st.title("Heatwave Risk Prediction System")
-    st.markdown("AI-driven atmospheric heat stress classification model.")
+    st.markdown("AI-driven atmospheric heat stress risk classification engine.")
 
     st.divider()
 
@@ -245,52 +285,94 @@ elif page == "Heatwave Risk":
                 st.stop()
 
             rainfall_now, temperature, humidity, lat, lon = weather_data
+            heat_index = calculate_heat_index(temperature, humidity)
 
-            detailed = fetch_weather_detailed(lat, lon)
+            with st.spinner("Analyzing atmospheric heat indicators..."):
+                detailed = fetch_weather_detailed(lat, lon)
 
-            if detailed is None:
-                st.error("Detailed weather fetch failed.")
-            else:
-                min_temp, max_humidity, min_humidity, wind_speed, pressure, rainfall = detailed
+                if detailed is None:
+                    st.error("Detailed weather fetch failed.")
+                else:
+                    min_temp, max_humidity, min_humidity, wind_speed, pressure, rainfall, h_times, h_temps = detailed
 
-                input_data = np.array([[
-                    min_temp,
-                    max_humidity,
-                    min_humidity,
-                    wind_speed,
-                    pressure,
-                    rainfall
-                ]])
+                    input_data = np.array([[
+                        min_temp,
+                        max_humidity,
+                        min_humidity,
+                        wind_speed,
+                        pressure,
+                        rainfall
+                    ]])
 
-                with st.spinner("Analyzing atmospheric heat indicators..."):
                     prediction = heatwave_model.predict(input_data)
                     probability = heatwave_model.predict_proba(input_data)[0][1]
 
-                if prediction[0] == 1:
-                    st.error("🔥 HIGH HEATWAVE RISK — Avoid outdoor exposure")
-                else:
-                    st.success("✅ LOW HEATWAVE RISK — Conditions Normal")
+                    if prediction[0] == 1:
+                        st.error("🔥 HIGH HEATWAVE RISK — Avoid outdoor exposure")
+                    else:
+                        st.success("✅ LOW HEATWAVE RISK — Conditions Normal")
 
-                st.metric("Heatwave Probability", f"{probability * 100:.2f}%")
+                    st.markdown("### 📊 Heatwave Summary")
+                    with st.container(border=True):
+                        col1, col2 = st.columns([2, 1])
 
-                st.divider()
+                        with col1:
+                            st.plotly_chart(risk_gauge(probability * 100), use_container_width=True)
+                        
+                        with col2:
+                            st.metric("Temperature", f"{temperature:.2f} °C")
+                            st.metric("Humidity", f"{humidity}%")
+                            st.metric("Heat Index", f"{heat_index:.2f} °C")
 
-                st.subheader("📍 Location Overview")
+                    with st.container(border=True):
+                        if probability < 0.3:
+                            st.success("### 🟢 Safety Guidance\n* Stay hydrated\n* Light clothing recommended\n* Normal outdoor activity is safe")
+                        elif probability < 0.6:
+                            st.warning("### 🟡 Moderate Heat Stress\n* Avoid prolonged sun exposure\n* Take frequent breaks")
+                        else:
+                            st.error("### 🔴 High Heatwave Alert\n* Avoid outdoor activity\n* Risk of heatstroke\n* Seek cooling shelters")
 
-                m = folium.Map(location=[lat, lon], zoom_start=10)
 
-                color = "red" if prediction[0] == 1 else "green"
+                    st.subheader("🌡️ 24-Hour Temperature Projection")
 
-                folium.CircleMarker(
-                    location=[lat, lon],
-                    radius=12,
-                    color=color,
-                    fill=True,
-                    fill_color=color,
-                    popup=f"{city} — Heatwave Risk"
-                ).add_to(m)
+                    temp_df = pd.DataFrame({
+                        "Time": [t.split("T")[1] for t in h_times],
+                        "Temp (°C)": h_temps
+                    })
 
-                folium_static(m, width=1200, height=400)
+                    # Create a more visual area chart
+                    chart = alt.Chart(temp_df).mark_area(
+                        line={'color':'#ff4b4b'},
+                        color=alt.Gradient(
+                            gradient='linear',
+                            stops=[alt.GradientStop(color='white', offset=0),
+                                alt.GradientStop(color='#ff4b4b', offset=1)],
+                            x1=1, x2=1, y1=1, y2=0
+                        )
+                    ).encode(
+                        x='Time:O',
+                        y=alt.Y('Temp (°C):Q', scale=alt.Scale(zero=False))
+                    ).properties(height=300)
+
+                    st.altair_chart(chart, use_container_width=True)
+                    st.caption("Hourly temperature fluctuations assist in identifying peak heat stress windows.")
+
+                    st.subheader("📍 Location Overview")
+
+                    m = folium.Map(location=[lat, lon], zoom_start=10)
+
+                    color = "red" if prediction[0] == 1 else "green"
+
+                    folium.CircleMarker(
+                        location=[lat, lon],
+                        radius=12,
+                        color=color,
+                        fill=True,
+                        fill_color=color,
+                        popup=f"{city} — Heatwave Risk"
+                    ).add_to(m)
+
+                    folium_static(m, width=1200, height=400)
 
 # ==============================================================
 # PAGE 3 — MODEL INSIGHTS
