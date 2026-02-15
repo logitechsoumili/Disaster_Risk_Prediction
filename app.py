@@ -219,7 +219,10 @@ if page == "Flood Risk":
                                 )
 
                             with col2:
-                                st.metric("Model Confidence", f"{np.max(probabilities) * 100:.2f}%")
+                                st.metric("Model Confidence", 
+                                          f"{np.max(probabilities) * 100:.2f}%",
+                                          help = "Confidence represents the predicted probability of the selected risk class."
+                                          )
 
                             with col3:
                                 st.metric("Elevation (m)", f"{elevation:.2f}")
@@ -287,7 +290,7 @@ elif page == "Heatwave Risk":
             rainfall_now, temperature, humidity, lat, lon = weather_data
             heat_index = calculate_heat_index(temperature, humidity)
 
-            with st.spinner("Analyzing atmospheric heat indicators..."):
+            with st.spinner("Running model inference on live meteorological inputs..."):
                 detailed = fetch_weather_detailed(lat, lon)
 
                 if detailed is None:
@@ -582,4 +585,4 @@ else:
         with col3:
             st.link_button("Email", "mailto:logitechsoumili@gmail.com", icon="📩", use_container_width=True)
 
-st.divider()
+st.caption("© 2026 Soumili Saha | Disaster Risk Prediction System | Built with Streamlit")
