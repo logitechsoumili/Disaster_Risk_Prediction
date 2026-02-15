@@ -152,8 +152,6 @@ if page == "Flood Risk":
 
     st.divider()
 
-    st.subheader("City-Based Risk Assessment")
-
     city = st.text_input("Enter City Name")
 
     historical_mapping = {"No": 0, "Yes": 1}
@@ -274,7 +272,7 @@ elif page == "Heatwave Risk":
 
     st.divider()
 
-    city = st.text_input("Enter City Name for Heatwave Assessment")
+    city = st.text_input("Enter City Name")
 
     if st.button("Run Assessment"):
 
@@ -585,4 +583,5 @@ else:
         with col3:
             st.link_button("Email", "mailto:logitechsoumili@gmail.com", icon="📩", use_container_width=True)
 
+st.divider()
 st.caption("© 2026 Soumili Saha | Disaster Risk Prediction System | Built with Streamlit")
