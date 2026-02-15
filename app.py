@@ -212,7 +212,11 @@ if page == "Flood Risk":
                             col1, col2, col3 = st.columns(3)
 
                             with col1:
-                                st.metric("Predicted Risk Level", risk_labels[risk_level])
+                                st.metric(
+                                    "Predicted Risk Level", 
+                                    risk_labels[risk_level],
+                                    help="Low: Minimal stress | Medium: Moderate probability | High: Elevated likelihood"
+                                )
 
                             with col2:
                                 st.metric("Model Confidence", f"{np.max(probabilities) * 100:.2f}%")
@@ -236,7 +240,7 @@ if page == "Flood Risk":
 
                     st.divider()
 
-                    st.subheader("📍 Geographical Risk Location")
+                    st.subheader("📍 Location Overview")
                     
                     m = folium.Map(location=[lat, lon], zoom_start=10)
                     
@@ -256,16 +260,6 @@ if page == "Flood Risk":
                     ).add_to(m)
                     
                     folium_static(m, width=1200, height=400)
-
-                    st.divider()
-
-                    st.info("""
-                        ### Risk Interpretation
-
-                        - **Low Risk** → Minimal hydrological stress  
-                        - **Medium Risk** → Moderate flood probability  
-                        - **High Risk** → Elevated likelihood of flooding — monitoring advised  
-                        """)
 
 # ==============================================================
 # PAGE 2 — HEATWAVE RISK
@@ -318,7 +312,12 @@ elif page == "Heatwave Risk":
                     else:
                         st.success("✅ LOW HEATWAVE RISK — Conditions Normal")
 
-                    st.markdown("### 📊 Heatwave Summary")
+                    st.markdown("### 📊 Heatwave Summary", help=(
+                        "The Gauge indicates the probability of a heatwave occurring based on atmospheric patterns.\n\n"
+                        "- **0-30% (Green):** Normal conditions.\n"
+                        "- **30-60% (Yellow):** Moderate heat stress risk.\n"
+                        "- **60-100% (Red):** High heatwave probability; extreme caution required."
+                    ))
                     with st.container(border=True):
                         col1, col2 = st.columns([2, 1])
 
@@ -427,7 +426,11 @@ elif page == "Model Insights":
                 st.plotly_chart(fig, use_container_width=True)
 
             with right_col:
-                st.markdown("#### 🎯 Classification Accuracy")
+                st.markdown("#### 🎯 Classification Accuracy", help=(
+                    "- **Diagonal:** Correct predictions.\n"
+                    "- **Off-Diagonal:** Model misclassifications.\n"
+                    "- **Goal:** High values in the diagonal indicate a reliable model."
+                ))
                 st.image("assets/confusion_matrix_flood.png", caption= "Class Labels: 0 = Low Risk, 1 = Moderate Risk, 2 = High Risk")
 
     else:
@@ -473,7 +476,11 @@ elif page == "Model Insights":
                 st.plotly_chart(fig, use_container_width=True)
 
             with right_col:
-                st.markdown("#### 🎯 Classification Accuracy")
+                st.markdown("#### 🎯 Classification Accuracy", help=(
+                    "- **Diagonal:** Correct predictions.\n"
+                    "- **Off-Diagonal:** Model misclassifications.\n"
+                    "- **Goal:** High values in the diagonal indicate a reliable model."
+                ))
                 st.image("assets/confusion_matrix_heatwave.png", caption= "Class Labels: 0 = No Heatwave, 1 = Heatwave")
                 
 
